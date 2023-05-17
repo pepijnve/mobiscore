@@ -63,7 +63,7 @@ def get_statstical_unit(lat_wgs84, lon_wgs84)
   REXML::XPath.each(doc, xpath_expr, namespace).map { |e| e.text }
 end
 
-def get_mobi_score(location)
+def get_location(location)
   location_json = get_json(
     "https://loc.geopunt.be/geolocation/location?q=#{URI.encode_www_form_component(location)}",
     {
@@ -71,8 +71,31 @@ def get_mobi_score(location)
       'Accept-Encoding' => 'gzip, deflate, br',
       'Accept-Language' => 'nl-NL,nl;q=0.9'
     })
+  location_json['LocationResult'][0]
+end
 
-  location_result = location_json['LocationResult'][0]
+def get_suggestion(location)
+  location_json = get_json(
+    "https://loc.geopunt.be/geolocation/suggestion?q=#{URI.encode_www_form_component(location)}",
+    {
+      'Accept' => '*/*',
+      'Accept-Encoding' => 'gzip, deflate, br',
+      'Accept-Language' => 'nl-NL,nl;q=0.9'
+    })
+  location_json['SuggestionResult'][0]
+end
+
+def get_mobi_score(location)
+  location_result = get_location(location)
+
+  if location_result.nil?
+    suggestion = get_suggestion(location)
+    if suggestion
+      STDERR.puts "Trying '#{suggestion}' instead of '#{location}'"
+      location_result = get_location(suggestion)
+    end
+  end
+
   if location_result.nil?
     raise "Could not determine location '#{location}'"
   end
