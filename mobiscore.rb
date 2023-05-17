@@ -222,7 +222,7 @@ File.foreach(ARGV[0]) do |line|
 
     mobi_score = score[:mobi_score]
     values = [
-      score[:address],
+      "\"score[:address]\"",
       format_decimal(score[:lon], options[:decimal]),
       format_decimal(score[:lat], options[:decimal]),
       format_decimal(mobi_score[:total], options[:decimal]),
