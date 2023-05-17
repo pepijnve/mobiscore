@@ -127,7 +127,16 @@ def get_mobi_score(street, number, city)
   }
 end
 
+def format_decimal(decimal, decimal_point)
+  if decimal
+    decimal.to_s.gsub('.', decimal_point)
+  else
+    decimal
+  end
+end
+
 options = {
+  :decimal => ',',
   :separator => ';',
   :output => '-',
 }
@@ -137,6 +146,11 @@ OptionParser.new do |opts|
   opts.on("-s", "--separator [SEP]", String,
             "Specify value separator (default ;)") do |s|
     options[:separator] = s
+  end
+
+  opts.on("-d", "--decimal [DEC]", String,
+          "Specify decimal point (default ,)") do |s|
+    options[:decimal] = s
   end
 
   opts.on("-o", "--output [FILE]", String,
@@ -155,21 +169,22 @@ out.puts "straat,huisnummer,gemeente,lon,lat,mobi_totaal,mobi_gezondheid,mobi_on
 File.foreach(ARGV[0]) do |line|
   street, number, city = line.split(options[:separator])
   score = get_mobi_score(street, number, city)
+
   if score
     mobi_score = score[:mobi_score]
     out.puts [
       street,
       number,
       city,
-      score[:lon],
-      score[:lat],
-      mobi_score[:total],
-      mobi_score[:health],
-      mobi_score[:education],
-      mobi_score[:culture],
-      mobi_score[:public_transportation],
-      mobi_score[:services],
-      score[:statistical_units].first
+      format_decimal(score[:lon], options[:decimal]),
+      format_decimal(score[:lat], options[:decimal]),
+      format_decimal(mobi_score[:total], options[:decimal]),
+      format_decimal(mobi_score[:health], options[:decimal]),
+      format_decimal(mobi_score[:education], options[:decimal]),
+      format_decimal(mobi_score[:culture], options[:decimal]),
+      format_decimal(mobi_score[:public_transportation], options[:decimal]),
+      format_decimal(mobi_score[:services], options[:decimal]),
+      "\"#{score[:statistical_units].first}\""
     ].join(options[:separator])
   end
 end
