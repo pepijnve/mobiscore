@@ -68,16 +68,9 @@ def get_mobi_score(street, number, city)
   location_json = get_json(
     "https://loc.geopunt.be/geolocation/location?q=#{URI.encode_www_form_component(location_query)}",
     {
-      'User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Safari/605.1.15',
       'Accept' => '*/*',
-      'Host' => 'loc.geopunt.be',
-      'Sec-Fetch-Site' => 'cross-site',
-      'Sec-Fetch-Dest' => 'empty',
-      'Sec-Fetch-Mode' => 'cors',
-      'Referer' => 'https://mobiscore.omgeving.vlaanderen.be/',
       'Accept-Encoding' => 'gzip, deflate, br',
-      'Accept-Language' => 'nl-NL,nl;q=0.9',
-      'Origin' => 'https://mobiscore.omgeving.vlaanderen.be'
+      'Accept-Language' => 'nl-NL,nl;q=0.9'
     })
 
   location_result = location_json['LocationResult'][0]
@@ -95,12 +88,7 @@ def get_mobi_score(street, number, city)
   mobi_score_json = get_json(
     mobi_score_url,
     {
-      'User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Safari/605.1.15',
       'Accept' => '*/*',
-      'Host' => 'mobiscore.omgeving.vlaanderen.be',
-      'Sec-Fetch-Site' => 'same-origin',
-      'Sec-Fetch-Dest' => 'empty',
-      'Sec-Fetch-Mode' => 'cors',
       'Accept-Encoding' => 'gzip, deflate, br',
       'Accept-Language' => 'nl-NL,nl;q=0.9',
       'Referer' => 'https://mobiscore.omgeving.vlaanderen.be/'
