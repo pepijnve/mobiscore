@@ -91,7 +91,7 @@ def get_geopunt_location(location)
   location_result = location_json['LocationResult'][0]
   if location_result
     geometry = location_result['Location']
-    { :address => location, :lat => geometry['Lat_WGS84'], :lon => geometry['Lon_WGS84'] }
+    { :address => "#{location_result['FormattedAddress']}, Belgium", :lat => geometry['Lat_WGS84'], :lon => geometry['Lon_WGS84'] }
   else
     nil
   end
