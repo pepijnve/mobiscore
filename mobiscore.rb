@@ -158,30 +158,35 @@ out.puts "straat,huisnummer,gemeente,lon,lat,mobi_totaal,mobi_gezondheid,mobi_on
 File.foreach(ARGV[0]) do |line|
   line.strip!
   street, number, city = line.split(options[:separator])
+
+  values = [
+    street,
+    number,
+    city
+  ]
+
   begin
     score = get_mobi_score(street, number, city)
 
-    if score
-      mobi_score = score[:mobi_score]
-      out.puts [
-        street,
-        number,
-        city,
-        format_decimal(score[:lon], options[:decimal]),
-        format_decimal(score[:lat], options[:decimal]),
-        format_decimal(mobi_score[:total], options[:decimal]),
-        format_decimal(mobi_score[:health], options[:decimal]),
-        format_decimal(mobi_score[:education], options[:decimal]),
-        format_decimal(mobi_score[:culture], options[:decimal]),
-        format_decimal(mobi_score[:public_transportation], options[:decimal]),
-        format_decimal(mobi_score[:services], options[:decimal]),
-        "\"#{score[:statistical_units].first}\""
-      ].join(options[:separator])
-    end
+    mobi_score = score[:mobi_score]
+    values.concat([
+      format_decimal(score[:lon], options[:decimal]),
+      format_decimal(score[:lat], options[:decimal]),
+      format_decimal(mobi_score[:total], options[:decimal]),
+      format_decimal(mobi_score[:health], options[:decimal]),
+      format_decimal(mobi_score[:education], options[:decimal]),
+      format_decimal(mobi_score[:culture], options[:decimal]),
+      format_decimal(mobi_score[:public_transportation], options[:decimal]),
+      format_decimal(mobi_score[:services], options[:decimal]),
+      "\"#{score[:statistical_units].first}\""
+    ])
   rescue => e
     STDERR.puts "Line #{line_no}: #{line}"
     STDERR.puts "  #{e}"
+    values.concat ['', '', '', '', '', '', '', '', '']
   end
+
+  out.puts values.join(options[:separator])
 
   line_no = line_no + 1
 end
