@@ -64,8 +64,9 @@ def get_statstical_unit(lat_wgs84, lon_wgs84)
 end
 
 def get_mobi_score(street, number, city)
+  location_query = "#{street} #{number} #{city}"
   location_json = get_json(
-    "https://loc.geopunt.be/geolocation/location?q=#{URI.encode_www_form_component("#{street} #{number} #{city.gsub(' ', '-')}")}",
+    "https://loc.geopunt.be/geolocation/location?q=#{URI.encode_www_form_component(location_query)}",
     {
       'User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Safari/605.1.15',
       'Accept' => '*/*',
@@ -81,8 +82,7 @@ def get_mobi_score(street, number, city)
 
   location_result = location_json['LocationResult'][0]
   if location_result.nil?
-    STDERR.puts "Could not determine location for #{street} #{number}, #{city}"
-    return nil
+    raise "Could not determine location '#{location_query}'"
   end
 
   location = location_result['Location']
@@ -165,28 +165,37 @@ else
   out = File.open(options[:output], "w")
 end
 
+line_no = 1
 out.puts "straat,huisnummer,gemeente,lon,lat,mobi_totaal,mobi_gezondheid,mobi_onderwijs,mobi_ontspanning,mobi_ov,mobi_winkel,su"
 File.foreach(ARGV[0]) do |line|
+  line.strip!
   street, number, city = line.split(options[:separator])
-  score = get_mobi_score(street, number, city)
+  begin
+    score = get_mobi_score(street, number, city)
 
-  if score
-    mobi_score = score[:mobi_score]
-    out.puts [
-      street,
-      number,
-      city,
-      format_decimal(score[:lon], options[:decimal]),
-      format_decimal(score[:lat], options[:decimal]),
-      format_decimal(mobi_score[:total], options[:decimal]),
-      format_decimal(mobi_score[:health], options[:decimal]),
-      format_decimal(mobi_score[:education], options[:decimal]),
-      format_decimal(mobi_score[:culture], options[:decimal]),
-      format_decimal(mobi_score[:public_transportation], options[:decimal]),
-      format_decimal(mobi_score[:services], options[:decimal]),
-      "\"#{score[:statistical_units].first}\""
-    ].join(options[:separator])
+    if score
+      mobi_score = score[:mobi_score]
+      out.puts [
+        street,
+        number,
+        city,
+        format_decimal(score[:lon], options[:decimal]),
+        format_decimal(score[:lat], options[:decimal]),
+        format_decimal(mobi_score[:total], options[:decimal]),
+        format_decimal(mobi_score[:health], options[:decimal]),
+        format_decimal(mobi_score[:education], options[:decimal]),
+        format_decimal(mobi_score[:culture], options[:decimal]),
+        format_decimal(mobi_score[:public_transportation], options[:decimal]),
+        format_decimal(mobi_score[:services], options[:decimal]),
+        "\"#{score[:statistical_units].first}\""
+      ].join(options[:separator])
+    end
+  rescue => e
+    STDERR.puts "Line #{line_no}: #{line}"
+    STDERR.puts "  #{e}"
   end
+
+  line_no = line_no + 1
 end
 
 if options[:output] != '-'
