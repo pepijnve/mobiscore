@@ -128,7 +128,8 @@ def get_mobi_score(street, number, city)
 end
 
 options = {
-  :separator => ';'
+  :separator => ';',
+  :output => '-',
 }
 OptionParser.new do |opts|
   opts.banner = "Usage: #{File.basename(__FILE__)} [options]"
@@ -137,15 +138,26 @@ OptionParser.new do |opts|
             "Specify value separator (default ;)") do |s|
     options[:separator] = s
   end
+
+  opts.on("-o", "--output [FILE]", String,
+          "Specify output file. (default -)") do |out_file|
+    options[:output] = out_file
+  end
 end.parse!
 
-puts "straat,huisnummer,gemeente,lon,lat,mobi_totaal,mobi_gezondheid,mobi_onderwijs,mobi_ontspanning,mobi_ov,mobi_winkel,su"
+if options[:output] == '-'
+  out = STDOUT
+else
+  out = File.open(options[:output], "w")
+end
+
+out.puts "straat,huisnummer,gemeente,lon,lat,mobi_totaal,mobi_gezondheid,mobi_onderwijs,mobi_ontspanning,mobi_ov,mobi_winkel,su"
 File.foreach(ARGV[0]) do |line|
   street, number, city = line.split(options[:separator])
   score = get_mobi_score(street, number, city)
   if score
     mobi_score = score[:mobi_score]
-    puts [
+    out.puts [
       street,
       number,
       city,
@@ -160,4 +172,8 @@ File.foreach(ARGV[0]) do |line|
       score[:statistical_units].first
     ].join(options[:separator])
   end
+end
+
+if options[:output] != '-'
+  out.close
 end
