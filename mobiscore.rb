@@ -63,7 +63,24 @@ def get_statstical_unit(lat_wgs84, lon_wgs84)
   REXML::XPath.each(doc, xpath_expr, namespace).map { |e| e.text }
 end
 
-def get_location(location)
+def get_google_location(location, google_api_key)
+  location_json = get_json(
+    "https://maps.googleapis.com/maps/api/geocode/json?key=#{google_api_key}&address=#{URI.encode_www_form_component(location)}",
+    {
+      'Accept' => '*/*',
+      'Accept-Encoding' => 'gzip, deflate, br'
+    })
+  location_result = location_json['results'][0]
+  if location_result
+    address = location_result['formatted_address']
+    geometry = location_result['geometry']['location']
+    { :address => address, :lat => geometry['lat'], :lon => geometry['lng'] }
+  else
+    nil
+  end
+end
+
+def get_geopunt_location(location)
   location_json = get_json(
     "https://loc.geopunt.be/geolocation/location?q=#{URI.encode_www_form_component(location)}",
     {
@@ -71,10 +88,16 @@ def get_location(location)
       'Accept-Encoding' => 'gzip, deflate, br',
       'Accept-Language' => 'nl-NL,nl;q=0.9'
     })
-  location_json['LocationResult'][0]
+  location_result = location_json['LocationResult'][0]
+  if location_result
+    geometry = location_result['Location']
+    { :address => location, :lat => geometry['Lat_WGS84'], :lon => geometry['Lon_WGS84'] }
+  else
+    nil
+  end
 end
 
-def get_suggestion(location)
+def get_geopunt_suggestion(location)
   location_json = get_json(
     "https://loc.geopunt.be/geolocation/suggestion?q=#{URI.encode_www_form_component(location)}",
     {
@@ -85,26 +108,28 @@ def get_suggestion(location)
   location_json['SuggestionResult'][0]
 end
 
-def get_mobi_score(location)
-  location_result = get_location(location)
+def get_mobi_score(location, google_api_key)
+  location_result = get_geopunt_location(location)
 
   if location_result.nil?
-    suggestion = get_suggestion(location)
+    suggestion = get_geopunt_suggestion(location)
     if suggestion
       STDERR.puts "Trying '#{suggestion}' instead of '#{location}'"
-      location_result = get_location(suggestion)
+      location_result = get_geopunt_location(suggestion)
     end
+  end
+
+  if location_result.nil? && google_api_key
+    location_result = get_google_location(location, google_api_key)
   end
 
   if location_result.nil?
     raise "Could not determine location '#{location}'"
   end
 
-  location = location_result['Location']
-  lat_wgs84 = location['Lat_WGS84']
-  lon_wgs84 = location['Lon_WGS84']
-  x = location['X_Lambert72']
-  y = location['Y_Lambert72']
+  address = location_result[:address]
+  lat_wgs84 = location_result[:lat]
+  lon_wgs84 = location_result[:lon]
 
   mobi_score_url = "https://mobiscore.omgeving.vlaanderen.be/ajax/get-score?lat=#{lat_wgs84}&lon=#{lon_wgs84}"
   mobi_score_json = get_json(
@@ -121,10 +146,9 @@ def get_mobi_score(location)
   statistical_units = get_statstical_unit(lat_wgs84, lon_wgs84)
 
   return {
+    :address => address,
     :lat => lat_wgs84,
     :lon => lon_wgs84,
-    :x => x,
-    :y => y,
     :mobi_score => {
       :total => mobi_score['totaal'],
       :health => mobi_score['gezondheid'],
@@ -146,7 +170,7 @@ def format_decimal(decimal, decimal_point)
 end
 
 options = {
-  :fields => [0,1,2],
+  :fields => [0, 1, 2],
   :decimal => ',',
   :separator => ';',
   :output => '-',
@@ -160,7 +184,7 @@ OptionParser.new do |opts|
   end
 
   opts.on("-s", "--separator [SEP]", String,
-            "Specify value separator (default ;)") do |s|
+          "Specify value separator (default ;)") do |s|
     options[:separator] = s
   end
 
@@ -172,6 +196,11 @@ OptionParser.new do |opts|
   opts.on("-o", "--output [FILE]", String,
           "Specify output file. (default -)") do |out_file|
     options[:output] = out_file
+  end
+
+  opts.on("-g", "--google_api_key [KEY]", String,
+          "Specify a Google API key to use the Google Geolocation API. (default none)") do |key|
+    options[:google_api_key] = key
   end
 end.parse!
 
@@ -188,15 +217,12 @@ File.foreach(ARGV[0]) do |line|
   fields = line.split(options[:separator])
   address = options[:fields].map { |i| fields[i] }.join(' ')
 
-  values = [
-    address
-  ]
-
   begin
-    score = get_mobi_score(address)
+    score = get_mobi_score(address, options[:google_api_key])
 
     mobi_score = score[:mobi_score]
-    values.concat([
+    values = [
+      score[:address],
       format_decimal(score[:lon], options[:decimal]),
       format_decimal(score[:lat], options[:decimal]),
       format_decimal(mobi_score[:total], options[:decimal]),
@@ -205,12 +231,12 @@ File.foreach(ARGV[0]) do |line|
       format_decimal(mobi_score[:culture], options[:decimal]),
       format_decimal(mobi_score[:public_transportation], options[:decimal]),
       format_decimal(mobi_score[:services], options[:decimal]),
-      "\"#{score[:statistical_units].first}\""
-    ])
+      score[:statistical_units].first
+    ]
   rescue => e
     STDERR.puts "Line #{line_no}: #{line}"
     STDERR.puts "  #{e}"
-    values.concat ['', '', '', '', '', '', '', '', '']
+    values = [address, '', '', '', '', '', '', '', '', '']
   end
 
   out.puts values.join(options[:separator])
