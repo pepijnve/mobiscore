@@ -145,7 +145,7 @@ def get_mobi_score(location, google_api_key)
 
   statistical_units = get_statstical_unit(lat_wgs84, lon_wgs84)
 
-  return {
+  {
     :address => address,
     :lat => lat_wgs84,
     :lon => lon_wgs84,
