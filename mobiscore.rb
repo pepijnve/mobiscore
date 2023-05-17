@@ -63,10 +63,9 @@ def get_statstical_unit(lat_wgs84, lon_wgs84)
   REXML::XPath.each(doc, xpath_expr, namespace).map { |e| e.text }
 end
 
-def get_mobi_score(street, number, city)
-  location_query = "#{street} #{number} #{city}"
+def get_mobi_score(location)
   location_json = get_json(
-    "https://loc.geopunt.be/geolocation/location?q=#{URI.encode_www_form_component(location_query)}",
+    "https://loc.geopunt.be/geolocation/location?q=#{URI.encode_www_form_component(location)}",
     {
       'Accept' => '*/*',
       'Accept-Encoding' => 'gzip, deflate, br',
@@ -75,7 +74,7 @@ def get_mobi_score(street, number, city)
 
   location_result = location_json['LocationResult'][0]
   if location_result.nil?
-    raise "Could not determine location '#{location_query}'"
+    raise "Could not determine location '#{location}'"
   end
 
   location = location_result['Location']
@@ -124,12 +123,18 @@ def format_decimal(decimal, decimal_point)
 end
 
 options = {
+  :fields => [0,1,2],
   :decimal => ',',
   :separator => ';',
   :output => '-',
 }
 OptionParser.new do |opts|
   opts.banner = "Usage: #{File.basename(__FILE__)} [options]"
+
+  opts.on("-f", "--fields [FIELD_NUMBERS]", String,
+          "Specify input field numbers to use for location queries (default 1,2,3)") do |s|
+    options[:fields] = s.split(',').map { |f| f.strip.to_i - 1 }
+  end
 
   opts.on("-s", "--separator [SEP]", String,
             "Specify value separator (default ;)") do |s|
@@ -154,19 +159,18 @@ else
 end
 
 line_no = 1
-out.puts "straat,huisnummer,gemeente,lon,lat,mobi_totaal,mobi_gezondheid,mobi_onderwijs,mobi_ontspanning,mobi_ov,mobi_winkel,su"
+out.puts "adres,lon,lat,mobi_totaal,mobi_gezondheid,mobi_onderwijs,mobi_ontspanning,mobi_ov,mobi_winkel,su"
 File.foreach(ARGV[0]) do |line|
   line.strip!
-  street, number, city = line.split(options[:separator])
+  fields = line.split(options[:separator])
+  address = options[:fields].map { |i| fields[i] }.join(' ')
 
   values = [
-    street,
-    number,
-    city
+    address
   ]
 
   begin
-    score = get_mobi_score(street, number, city)
+    score = get_mobi_score(address)
 
     mobi_score = score[:mobi_score]
     values.concat([
