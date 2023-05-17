@@ -1,5 +1,6 @@
-require 'net/http'
 require 'json'
+require 'net/http'
+require 'optparse'
 require 'rexml/document'
 require 'stringio'
 require 'zlib'
@@ -64,7 +65,7 @@ end
 
 def get_mobi_score(street, number, city)
   location_json = get_json(
-    "https://loc.geopunt.be/geolocation/location?q=#{URI.encode_www_form_component("#{street} #{number} #{city}")}",
+    "https://loc.geopunt.be/geolocation/location?q=#{URI.encode_www_form_component("#{street} #{number} #{city.gsub(' ', '-')}")}",
     {
       'User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Safari/605.1.15',
       'Accept' => '*/*',
@@ -78,7 +79,13 @@ def get_mobi_score(street, number, city)
       'Origin' => 'https://mobiscore.omgeving.vlaanderen.be'
     })
 
-  location = location_json['LocationResult'][0]['Location']
+  location_result = location_json['LocationResult'][0]
+  if location_result.nil?
+    STDERR.puts "Could not determine location for #{street} #{number}, #{city}"
+    return nil
+  end
+
+  location = location_result['Location']
   lat_wgs84 = location['Lat_WGS84']
   lon_wgs84 = location['Lon_WGS84']
   x = location['X_Lambert72']
@@ -120,10 +127,37 @@ def get_mobi_score(street, number, city)
   }
 end
 
+options = {
+  :separator => ';'
+}
+OptionParser.new do |opts|
+  opts.banner = "Usage: #{File.basename(__FILE__)} [options]"
+
+  opts.on("-s", "--separator [SEP]", String,
+            "Specify value separator (default ;)") do |s|
+    options[:separator] = s
+  end
+end.parse!
+
 puts "straat,huisnummer,gemeente,lon,lat,mobi_totaal,mobi_gezondheid,mobi_onderwijs,mobi_ontspanning,mobi_ov,mobi_winkel,su"
 File.foreach(ARGV[0]) do |line|
-  street, number, city = line.split(',')
+  street, number, city = line.split(options[:separator])
   score = get_mobi_score(street, number, city)
-  mobi_score = score[:mobi_score]
-  puts "#{street},#{number},#{city},#{score[:lon]},#{score[:lat]},#{mobi_score[:total]},#{mobi_score[:health]},#{mobi_score[:education]},#{mobi_score[:culture]},#{mobi_score[:public_transportation]},#{mobi_score[:services]},#{score[:statistical_units].first}"
+  if score
+    mobi_score = score[:mobi_score]
+    puts [
+      street,
+      number,
+      city,
+      score[:lon],
+      score[:lat],
+      mobi_score[:total],
+      mobi_score[:health],
+      mobi_score[:education],
+      mobi_score[:culture],
+      mobi_score[:public_transportation],
+      mobi_score[:services],
+      score[:statistical_units].first
+    ].join(options[:separator])
+  end
 end
